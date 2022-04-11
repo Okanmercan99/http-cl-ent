@@ -23,10 +23,15 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 
+import com.github.snksoft.crc.CRC;
+
 @Slf4j
 @Component
 @EnableScheduling
 public class HttpRestClient {
+    static int adsMessageId = 0;
+    static int coilsMessageId = 0;
+    static int coilsStepCounter = 0;
     static final Map<String, Properties> realmProperties = new HashMap<>();
     static Map<String, Map<String, String>> realmAccessTokens = new HashMap<>();
 
@@ -102,7 +107,7 @@ public class HttpRestClient {
         int keycloakPort = Integer.parseInt(props.getProperty("keycloak.port"));
         String clientSecret = props.getProperty(clientId + ".client.secret").trim();
         URL url = new URL("http", keycloakEndpoint, keycloakPort,
-                        "/auth/realms/" + realmId + "/protocol/openid-connect/token");
+                "/auth/realms/" + realmId + "/protocol/openid-connect/token");
         //Get Realm Access Token
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
 
@@ -141,7 +146,7 @@ public class HttpRestClient {
         return realmAccessToken;
     }
 
-    @Scheduled(fixedRate=3600000)
+    @Scheduled(fixedRate = 3600000)
     public static void populateAccessTokens() {
         try {
             if (realmProperties.isEmpty())
@@ -169,7 +174,7 @@ public class HttpRestClient {
         }
     }
 
-    @Scheduled(initialDelay = 10000, fixedRate=10000)
+    @Scheduled(initialDelay = 10000, fixedRate = 10000)
     public static void ADSClient() throws Exception {
         //XML Document created
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -188,8 +193,8 @@ public class HttpRestClient {
 
         //<msgID>
         Element messageIdElement = document.createElement("msgID");
-        messageIdElement.appendChild(document.createTextNode(Integer.toString(HtttpClientApplication.adsMessageId)));
-        HtttpClientApplication.adsMessageId++;
+        messageIdElement.appendChild(document.createTextNode(Integer.toString(HttpRestClient.adsMessageId)));
+        HttpRestClient.adsMessageId++;
         messageHeaderElement.appendChild(messageIdElement);
 
         //<msgSender>
@@ -315,8 +320,8 @@ public class HttpRestClient {
         //Send it
         sendHttpMessage("master", "ADSData", message, "POST");
     }
-    
-    @Scheduled(initialDelay = 10000, fixedRate=10000)
+
+    @Scheduled(initialDelay = 10000, fixedRate = 10000)
     public static void VSASClient() throws Exception {
 
         log.info("VSAS Client preparing an observation...");
@@ -345,6 +350,59 @@ public class HttpRestClient {
         log.info("VSAS Observation is ready: " + message.toString());
 
         sendHttpMessage("master", "VSASData", message.toString(), "POST");
+    }
+
+    @Scheduled(initialDelay = 10000, fixedRate = 10000)
+    public static void COILSClient() throws Exception {
+
+        log.info("COILS Client preparing an observation...");
+
+        String message = "";
+
+        //Operator Id
+        message = message.concat(String.format("%02x", Integer.valueOf(new Random().nextInt(256))));
+
+        //Message Id
+        message = message.concat(String.format("%04x", coilsMessageId++));
+
+        //Step Counter
+        message = message.concat(String.format("%04x", coilsStepCounter++));
+
+        //Flag Counter
+        message = message.concat(String.format("%04x", Integer.valueOf(new Random().nextInt(65536))));
+
+        //Position Estimation
+        message = message.concat(String.format("%05x", Integer.valueOf(new Random().nextInt(1048576))));
+        message = message.concat(String.format("%05x", Integer.valueOf(new Random().nextInt(1048576))));
+        message = message.concat(String.format("%05x", Integer.valueOf(new Random().nextInt(1048576))));
+        message = message.concat(String.format("%05x", Integer.valueOf(new Random().nextInt(1048576))));
+
+        //Altitude Estimation
+        message = message.concat(String.format("%04x", Integer.valueOf(new Random().nextInt(65536))));
+        message = message.concat(String.format("%04x", Integer.valueOf(new Random().nextInt(65536))));
+
+        //GPS Estimation
+        message = message.concat(String.format("%08x", Integer.valueOf(new Random().nextInt((int) Math.pow(16, 8)))));
+        message = message.concat(String.format("%08x", Integer.valueOf(new Random().nextInt((int) Math.pow(16, 8)))));
+
+        //GPS Quality factor
+        message = message.concat(String.format("%02x", Integer.valueOf(new Random().nextInt((int) Math.pow(16, 2)))));
+
+        //North Alignment
+        message = message.concat(String.format("%04x", Integer.valueOf(new Random().nextInt((int) Math.pow(16, 4)))));
+
+        //Yaw Drift
+        message = message.concat(String.format("%04x", Integer.valueOf(new Random().nextInt((int) Math.pow(16, 4)))));
+
+        //CRC-CCITT
+        message = message.concat(String.format("%04x", CRC.calculateCRC(CRC.Parameters.CCITT, message.getBytes())));
+
+        //CRLF
+        message = message.concat("da");
+
+        log.info("COILS Observation is ready: " + message);
+
+        sendHttpMessage("master", "COILSData", message, "POST");
     }
 }
 
