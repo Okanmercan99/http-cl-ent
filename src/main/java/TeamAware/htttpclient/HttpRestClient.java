@@ -1,6 +1,8 @@
 package TeamAware.htttpclient;
 
 import lombok.extern.slf4j.Slf4j;
+
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -81,7 +83,7 @@ public class HttpRestClient {
                 os.write(input, 0, input.length);
             }
         }
-        log.info("Request is sent");
+        log.info("Request is sent...");
         try (BufferedReader br = new BufferedReader(new InputStreamReader(con.getInputStream(), "utf-8"))) {
             StringBuilder response = new StringBuilder();
             String responseLine = null;
@@ -169,150 +171,180 @@ public class HttpRestClient {
 
     @Scheduled(initialDelay = 10000, fixedRate=10000)
     public static void ADSClient() throws Exception {
-    	//XML Document created
-    	DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
-    	DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-    	Document document = dBuilder.newDocument();
+        //XML Document created
+        DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
+        DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
+        Document document = dBuilder.newDocument();
+
+        //Prepare a observation
+        log.info("ADS Client preparing an observation...");
+        //<message name = "ADS">
+        Element rootElement = document.createElement("message");
+        rootElement.setAttribute("name", "ADS");
+        document.appendChild(rootElement);
+
+        //<msgHeader>
+        Element messageHeaderElement = document.createElement("msgHeader");
+
+        //<msgID>
+        Element messageIdElement = document.createElement("msgID");
+        messageIdElement.appendChild(document.createTextNode(Integer.toString(HtttpClientApplication.adsMessageId)));
+        HtttpClientApplication.adsMessageId++;
+        messageHeaderElement.appendChild(messageIdElement);
+
+        //<msgSender>
+        Element messageSenderElement = document.createElement("msgSender");
+        messageSenderElement.appendChild(document.createTextNode("A"));
+        messageHeaderElement.appendChild(messageSenderElement);
+
+        //<msgReciever>
+        Element messageRecieverElement = document.createElement("msgReciever");
+        messageRecieverElement.appendChild(document.createTextNode("B"));
+        messageHeaderElement.appendChild(messageRecieverElement);
+
+        //</msgHeader>
+        rootElement.appendChild(messageHeaderElement);
+
+        //<drone_id>
+        Element droneIdElement = document.createElement("drone_id");
+        droneIdElement.appendChild(document.createTextNode("1"));
+        rootElement.appendChild(droneIdElement);
+
+        //<timestamp>
+        Element timestampElement = document.createElement("timestamp");
+        timestampElement
+                .appendChild(document.createTextNode(new SimpleDateFormat("yyyy-MM-dd.HH.mm.ss").format(new Date())));
+        rootElement.appendChild(timestampElement);
+
+        //<audio_detector>
+        Element audioDetectorElement = document.createElement("audio_detector");
+
+        //<detection>
+        Element detectionElement = document.createElement("detection");
+
+        //<labels>
+        Element labelsElement = document.createElement("labels");
+        labelsElement.appendChild(document.createTextNode("AUDIO TEST"));
+        detectionElement.appendChild(labelsElement);
+
+        //<confidence>
+        Element confidenceElement = document.createElement("confidence");
+        confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
+        detectionElement.appendChild(confidenceElement);
+
+        //<azimuth_pred>
+        Element azimuthPredElement = document.createElement("azimuth_pred");
+        azimuthPredElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
+        detectionElement.appendChild(azimuthPredElement);
+
+        //<elevation_pred>
+        Element elevationPredElement = document.createElement("elevation_pred");
+        elevationPredElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
+        detectionElement.appendChild(elevationPredElement);
+
+        //</detection>
+        audioDetectorElement.appendChild(detectionElement);
+
+        //</audio_detectorr>
+        rootElement.appendChild(audioDetectorElement);
+
+        //<image_detector>
+        Element imageDetectorElement = document.createElement("image_detector");
+
+        //<detection>
+        detectionElement = document.createElement("detection");
+
+        //<labels>
+        labelsElement = document.createElement("labels");
+        labelsElement.appendChild(document.createTextNode("IMAGE TEST"));
+        detectionElement.appendChild(labelsElement);
+
+        //<confidence>
+        confidenceElement = document.createElement("confidence");
+        confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
+        detectionElement.appendChild(confidenceElement);
+
+        //<latitude>
+        Element latitudeElement = document.createElement("latitude");
+        latitudeElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat() * 10).toString()));
+        detectionElement.appendChild(latitudeElement);
+
+        //<longitude>
+        Element longitudeElement = document.createElement("longitude");
+        longitudeElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat() * 10).toString()));
+        detectionElement.appendChild(longitudeElement);
+
+        //</detection>
+        imageDetectorElement.appendChild(detectionElement);
+
+        //</image_detector>
+        rootElement.appendChild(imageDetectorElement);
+
+        //<late_fusion_result>
+        Element lateFusionResultElement = document.createElement("late_fusion_result");
+
+        //<detection>
+        detectionElement = document.createElement("detection");
+
+        //<label>
+        labelsElement = document.createElement("label");
+        labelsElement.appendChild(document.createTextNode("LATE FUSION TEST"));
+        detectionElement.appendChild(labelsElement);
+
+        //<confidence>
+        confidenceElement = document.createElement("confidence");
+        confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
+        detectionElement.appendChild(confidenceElement);
+
+        //</detection>
+        lateFusionResultElement.appendChild(detectionElement);
+
+        //</late_fusion_result>
+        rootElement.appendChild(lateFusionResultElement);
+
+        //Transform to xml format
+        DOMSource source = new DOMSource(document);
+        StringWriter writer = new StringWriter();
+        StreamResult result = new StreamResult(writer);
+        TransformerFactory transformerFactory = TransformerFactory.newInstance();
+        Transformer transformer = transformerFactory.newTransformer();
+        transformer.transform(source, result);
+        String message = writer.toString();
+        log.info("ADS Observation is ready: " + message);
+
+        //Send it
+        sendHttpMessage("master", "ADSData", message, "POST");
+    }
     
-    	//Prepare a observation
-    	log.info("ADS Client preparing an observation...");
-    	//<message name = "ADS">
-    	Element rootElement = document.createElement("message");
-    	rootElement.setAttribute("name", "ADS");
-    	document.appendChild(rootElement);
-    
-    	//<msgHeader>
-    	Element messageHeaderElement = document.createElement("msgHeader");
-    
-    	//<msgID>
-    	Element messageIdElement = document.createElement("msgID");
-    	messageIdElement.appendChild(document.createTextNode(Integer.toString(HtttpClientApplication.adsMessageId)));
-    	HtttpClientApplication.adsMessageId++;
-    	messageHeaderElement.appendChild(messageIdElement);
-    
-    	//<msgSender>
-    	Element messageSenderElement = document.createElement("msgSender");
-    	messageSenderElement.appendChild(document.createTextNode("A"));
-    	messageHeaderElement.appendChild(messageSenderElement);
-    
-    	//<msgReciever>
-    	Element messageRecieverElement = document.createElement("msgReciever");
-    	messageRecieverElement.appendChild(document.createTextNode("B"));
-    	messageHeaderElement.appendChild(messageRecieverElement);
-    
-    	//</msgHeader>
-    	rootElement.appendChild(messageHeaderElement);
-    
-    	//<drone_id>
-    	Element droneIdElement = document.createElement("drone_id");
-    	droneIdElement.appendChild(document.createTextNode("1"));
-    	rootElement.appendChild(droneIdElement);
-    
-    	//<timestamp>
-    	Element timestampElement = document.createElement("timestamp");
-    	timestampElement.appendChild(document.createTextNode(new SimpleDateFormat("yyyy-MM-dd.HH.mm.ss").format(new Date())));
-    	rootElement.appendChild(timestampElement);
-    
-    	//<audio_detector>
-    	Element audioDetectorElement = document.createElement("audio_detector");
-    
-    	//<detection>
-    	Element detectionElement = document.createElement("detection");
-    
-    	//<labels>
-    	Element labelsElement = document.createElement("labels");
-    	labelsElement.appendChild(document.createTextNode("AUDIO TEST"));
-    	detectionElement.appendChild(labelsElement);
-    
-    	//<confidence>
-    	Element confidenceElement = document.createElement("confidence");
-    	confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
-    	detectionElement.appendChild(confidenceElement);
-    
-    	//<azimuth_pred>
-    	Element azimuthPredElement = document.createElement("azimuth_pred");
-    	azimuthPredElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
-    	detectionElement.appendChild(azimuthPredElement);
-    
-    	//<elevation_pred>
-    	Element elevationPredElement = document.createElement("elevation_pred");
-    	elevationPredElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
-    	detectionElement.appendChild(elevationPredElement);
-    
-    	//</detection>
-    	audioDetectorElement.appendChild(detectionElement);
-    
-    	//</audio_detectorr>
-    	rootElement.appendChild(audioDetectorElement);
-    
-    	//<image_detector>
-    	Element imageDetectorElement = document.createElement("image_detector");
-    
-    	//<detection>
-    	detectionElement = document.createElement("detection");
-    
-    	//<labels>
-    	labelsElement = document.createElement("labels");
-    	labelsElement.appendChild(document.createTextNode("IMAGE TEST"));
-    	detectionElement.appendChild(labelsElement);
-    
-    	//<confidence>
-    	confidenceElement = document.createElement("confidence");
-    	confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
-    	detectionElement.appendChild(confidenceElement);
-    
-    	//<latitude>
-    	Element latitudeElement = document.createElement("latitude");
-    	latitudeElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat() * 10).toString()));
-    	detectionElement.appendChild(latitudeElement);
-    
-    	//<longitude>
-    	Element longitudeElement = document.createElement("longitude");
-    	longitudeElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat() * 10).toString()));
-    	detectionElement.appendChild(longitudeElement);
-    
-    	//</detection>
-    	imageDetectorElement.appendChild(detectionElement);
-    
-    	//</image_detector>
-    	rootElement.appendChild(imageDetectorElement);
-    
-    	//<late_fusion_result>
-    	Element lateFusionResultElement = document.createElement("late_fusion_result");
-    
-    	//<detection>
-    	detectionElement = document.createElement("detection");
-    
-    	//<label>
-    	labelsElement = document.createElement("label");
-    	labelsElement.appendChild(document.createTextNode("LATE FUSION TEST"));
-    	detectionElement.appendChild(labelsElement);
-    
-    	//<confidence>
-    	confidenceElement = document.createElement("confidence");
-    	confidenceElement.appendChild(document.createTextNode(Float.valueOf(new Random().nextFloat()).toString()));
-    	detectionElement.appendChild(confidenceElement);
-    
-    	//</detection>
-    	lateFusionResultElement.appendChild(detectionElement);
-    
-    	//</late_fusion_result>
-    	rootElement.appendChild(lateFusionResultElement);
-    
-    
-    
-    	//Transform to xml format
-    	DOMSource source = new DOMSource(document);
-    	StringWriter writer = new StringWriter();
-    	StreamResult result = new StreamResult(writer);
-    	TransformerFactory transformerFactory = TransformerFactory.newInstance();
-    	Transformer transformer = transformerFactory.newTransformer();
-    	transformer.transform(source, result);
-    	String message = writer.toString();
-    	log.info("Observation is ready:\n" + message);
-    	
-    	//Send it
-    	sendHttpMessage("master", "ADSData", message, "POST");
+    @Scheduled(initialDelay = 10000, fixedRate=10000)
+    public static void VSASClient() throws Exception {
+
+        log.info("VSAS Client preparing an observation...");
+
+        JSONObject message = new JSONObject();
+
+        JSONArray responders = new JSONArray();
+
+        for (int i = 0; i < 5; i++) {
+
+            JSONObject responder = new JSONObject();
+
+            responder.put("id", i);
+
+            JSONArray position = new JSONArray();
+            position.put(Float.valueOf(new Random().nextFloat()));
+            position.put(Float.valueOf(new Random().nextFloat()));
+            position.put(Float.valueOf(new Random().nextFloat()));
+
+            responder.put("position", position);
+
+            responders.put(responder);
+        }
+
+        message.put("responders", responders);
+        log.info("VSAS Observation is ready: " + message.toString());
+
+        sendHttpMessage("master", "VSASData", message.toString(), "POST");
     }
 }
 
